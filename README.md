@@ -36,9 +36,12 @@ Dibuat oleh **Tutorial SLiMS**.
 
 ## Cara pasang
 
-1. Unduh repositori ini (tombol **Code → Download ZIP**) lalu ekstrak.
-2. Ganti nama folder hasil ekstrak menjadi `modern_library`, lalu salin ke folder `template/`
-   di instalasi SLiMS Anda sehingga hasilnya `slims/template/modern_library/`.
+1. Buka halaman [**Releases**](https://github.com/tutorialslims/template-modern_library/releases/latest)
+   dan unduh berkas `modern_library-v1.0.0.zip` (versi terbaru).
+2. Ekstrak, lalu salin folder `modern_library` ke folder `template/` di instalasi SLiMS Anda
+   sehingga hasilnya `slims/template/modern_library/`.
+   > Jika mengunduh lewat tombol **Code → Download ZIP**, ganti dulu nama folder hasil ekstrak
+   > (`template-modern_library-main`) menjadi `modern_library`.
 3. Login ke Admin SLiMS, buka **Sistem → Template**.
 4. Pada kartu **modern_library**, klik **Aktifkan**.
 5. Muat ulang halaman OPAC (Ctrl + F5).
