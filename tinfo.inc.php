@@ -296,4 +296,21 @@ $sysconf['template']['option'][$sysconf['template']['theme']] = [
         'width' => '100',
         'max' => 300
     ],
+    'ml-activation-code' => [
+        'dbfield' => 'ml_activation_code',
+        'label' => 'Kode aktivasi (masa uji coba 365 hari). '
+            . (function () {
+                // tampilkan ID instalasi bila status uji coba sudah tercatat
+                global $dbs;
+                if (!isset($dbs) || !($dbs instanceof mysqli)) return '';
+                $q = @$dbs->query("SELECT setting_value FROM setting WHERE setting_name = 'ml_trial' ORDER BY setting_id ASC LIMIT 1");
+                $v = ($q && ($r = $q->fetch_row())) ? @unserialize($r[0], ['allowed_classes' => false]) : null;
+                return is_array($v) && !empty($v['id']) ? 'ID instalasi: ' . $v['id'] . '. ' : '';
+            })()
+            . 'Minta kode ke Tutorial SLiMS (tutorialslims@gmail.com / IG @tutorial_slims) dengan menyebutkan ID instalasi.',
+        'type' => 'longtext',
+        'default' => '',
+        'width' => '100',
+        'max' => 200
+    ],
 ];

@@ -20,8 +20,11 @@ $ml_field = (string)($_GET['field'] ?? 'keywords');
 $ml_allowed = ['keywords', 'title', 'author', 'subject', 'isbn', 'publisher', 'callnumber'];
 if (!in_array($ml_field, $ml_allowed, true)) $ml_field = 'keywords';
 
+// masa uji coba: muat helper template (sekali saja) untuk cek status kunci
+include_once __DIR__ . '/../classic.php';
+
 $ml_out = [];
-if (mb_strlen($ml_q) >= 2 && mb_strlen($ml_q) <= 100) {
+if (!mlTrialLocked() && mb_strlen($ml_q) >= 2 && mb_strlen($ml_q) <= 100) {
   $like   = '%' . addcslashes($ml_q, '%_\\') . '%';
   $prefix = addcslashes($ml_q, '%_\\') . '%';
 

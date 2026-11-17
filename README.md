@@ -24,6 +24,12 @@ Dibuat oleh **Tutorial SLiMS**.
 - Kata kunci dan kolom tetap terisi di halaman hasil
 - Riwayat pencarian (bisa dihapus) dan tautan ke seluruh koleksi
 
+**Buku Tamu** (`index.php?p=visitor`)
+- Tampil satu tema dengan beranda: header, menu, hero krem, dan footer yang sama
+- Jam digital serta statistik pengunjung hari ini, bulan ini, dan total
+- Kartu hasil check-in dengan foto anggota; tamu non-anggota dan input yang salah menampilkan gambar logo (`assets/images/guest-visitor.jpg`, bisa diganti)
+- Panduan pengisian, kutipan inspiratif, dan banner promo
+
 **Halaman lain**
 - Hasil pencarian dengan panel filter, halaman detail, informasi, berita, dan area anggota bergaya seragam
 - Halaman login anggota dua kolom

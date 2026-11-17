@@ -478,11 +478,14 @@ function mlCreditGuard($html)
   $intact = strpos($html, $marker) !== false
          && strpos($html, $c['email']) !== false
          && strpos($html, '@' . $c['ig']) !== false;
-  if ($intact) return $html;
-  // blok hilang atau diubah: buang sisa blok lama, sisipkan yang asli
-  $html = preg_replace('#<div id="ml-credit".*?</div></div>#s', '', $html);
-  $pos = strripos($html, '</body>');
-  return substr($html, 0, $pos) . mlCredit() . substr($html, $pos);
+  if (!$intact) {
+    // blok hilang atau diubah: buang sisa blok lama, sisipkan yang asli
+    $html = preg_replace('#<div id="ml-credit".*?</div></div>#s', '', $html);
+    $pos = strripos($html, '</body>');
+    $html = substr($html, 0, $pos) . mlCredit() . substr($html, $pos);
+  }
+  // masa uji coba 365 hari (lihat bagian MASA UJI COBA di bawah)
+  return mlTrialApply($html);
 }
 ob_start('mlCreditGuard');
 
@@ -496,4 +499,197 @@ function mlBiblioCount($dbs)
   $q = $dbs->query("SELECT COUNT(*) FROM biblio WHERE opac_hide < 1");
   $count = ($q && ($row = $q->fetch_row())) ? (int)$row[0] : 0;
   return $count;
+}
+
+// ============================================================================
+// Modern Library: MASA UJI COBA 365 HARI + KODE AKTIVASI
+// Template by Tutorial SLiMS — tutorialslims@gmail.com — @tutorial_slims
+// ----------------------------------------------------------------------------
+// - Hitungan dimulai saat OPAC pertama kali dirender dengan template ini.
+//   Status disimpan di tabel `setting` (setting_name = 'ml_trial'):
+//   ['start' => waktu mulai (unix), 'id' => ID instalasi 12 karakter].
+// - Setelah 365 hari: halaman tetap tampil, tetapi semua tautan & formulir
+//   dinonaktifkan di server dan lapisan pengunci menutup halaman.
+// - Buka kunci permanen: isi "Kode aktivasi" di Admin → Sistem → Template →
+//   Modern Library → Pengaturan. Kode = tanda tangan Ed25519 atas ID instalasi,
+//   dibuat oleh Tutorial SLiMS dengan kunci privat yang TIDAK ada di template.
+// ============================================================================
+define('ML_TRIAL_DAYS', 365);
+define('ML_TRIAL_SECONDS', ML_TRIAL_DAYS * 86400);
+define('ML_TRIAL_PUBKEY', '79Q7naY7dC5xgwZFtmTcj8NWYdqZI0S+4O12fQn2BYQ=');
+
+// Ambil (atau buat) status uji coba dari database
+function mlTrialRecord($dbs)
+{
+  if (!($dbs instanceof mysqli)) return null;
+  $q = $dbs->query("SELECT setting_value FROM setting WHERE setting_name = 'ml_trial' ORDER BY setting_id ASC LIMIT 1");
+  if ($q && ($row = $q->fetch_row())) {
+    $val = @unserialize($row[0], ['allowed_classes' => false]);
+    if (is_array($val) && isset($val['start'], $val['id'])) return $val;
+  }
+  // pertama kali: catat waktu mulai + ID instalasi acak
+  $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  $id = '';
+  for ($i = 0; $i < 12; $i++) $id .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+  $val = ['start' => time(), 'id' => $id];
+  $ser = serialize($val);
+  $stmt = $dbs->prepare("INSERT INTO setting (setting_name, setting_value) VALUES ('ml_trial', ?)");
+  if ($stmt) { $stmt->bind_param('s', $ser); $stmt->execute(); $stmt->close(); }
+  return $val;
+}
+
+// Cek kode aktivasi (base64url Ed25519) untuk ID instalasi
+function mlTrialVerify($id, $code)
+{
+  $code = preg_replace('/\s+/', '', (string)$code);
+  if ($code === '' || !function_exists('sodium_crypto_sign_verify_detached')) return false;
+  $sig = base64_decode(strtr($code, '-_', '+/') . str_repeat('=', (4 - strlen($code) % 4) % 4), true);
+  $pk = base64_decode(ML_TRIAL_PUBKEY, true);
+  if ($sig === false || strlen($sig) !== SODIUM_CRYPTO_SIGN_BYTES || strlen($pk) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) return false;
+  try {
+    return sodium_crypto_sign_verify_detached($sig, 'modern_library:' . $id, $pk);
+  } catch (\Throwable $e) {
+    return false;
+  }
+}
+
+// Status lengkap: id, start, remaining (detik), activated, locked
+function mlTrialState($dbs = null)
+{
+  static $state = null;
+  if ($state !== null) return $state;
+  global $sysconf;
+  $rec = mlTrialRecord($dbs);
+  if (!$rec) return $state = ['id' => '', 'start' => time(), 'remaining' => ML_TRIAL_SECONDS, 'activated' => false, 'locked' => false];
+  // Kode dari Pengaturan template disimpan SLiMS di baris `template`, yang ditimpa
+  // setiap kali template lain diaktifkan. Karena itu kode yang valid juga disalin
+  // ke catatan `ml_trial`, agar aktivasi tetap berlaku setelah berganti template.
+  $saved = (string)($rec['code'] ?? '');
+  $input = preg_replace('/\s+/', '', (string)($sysconf['template']['ml_activation_code'] ?? ''));
+  $activated = $saved !== '' && mlTrialVerify($rec['id'], $saved);
+  if (!$activated && $input !== '' && mlTrialVerify($rec['id'], $input)) {
+    $activated = true;
+    if ($dbs instanceof mysqli) {
+      $rec['code'] = $input;
+      $ser = serialize($rec);
+      $stmt = $dbs->prepare("UPDATE setting SET setting_value = ? WHERE setting_name = 'ml_trial'");
+      if ($stmt) { $stmt->bind_param('s', $ser); $stmt->execute(); $stmt->close(); }
+    }
+  }
+  $remaining = max(0, (int)$rec['start'] + ML_TRIAL_SECONDS - time());
+  return $state = [
+    'id'        => $rec['id'],
+    'start'     => (int)$rec['start'],
+    'remaining' => $remaining,
+    'activated' => $activated,
+    'locked'    => !$activated && $remaining <= 0,
+  ];
+}
+
+// Lapisan pengunci (HTML + CSS + JS inline). $active = langsung tampil.
+function mlTrialOverlay($state, $active)
+{
+  $c = mlCreditData();
+  $email = htmlspecialchars($c['email']);
+  $ig = htmlspecialchars($c['ig']);
+  $id = htmlspecialchars($state['id']);
+  $t = [
+    'title' => mlT('Masa uji coba template telah berakhir', 'The template trial period has ended'),
+    'body'  => mlT('Template OPAC <b>Modern Library</b> hanya dapat digunakan ' . ML_TRIAL_DAYS . ' hari dalam mode uji coba. Semua menu, ikon, dan tautan dikunci sampai template diaktivasi.',
+                   'The <b>Modern Library</b> OPAC template can only be used for ' . ML_TRIAL_DAYS . ' days in trial mode. All menus, icons and links are locked until the template is activated.'),
+    'idl'   => mlT('ID instalasi', 'Installation ID'),
+    'how'   => mlT('Kirim ID instalasi ini ke Tutorial SLiMS untuk mendapatkan kode aktivasi, lalu tempelkan di Admin SLiMS → Sistem → Template → Modern Library → Pengaturan → <b>Kode aktivasi</b>.',
+                   'Send this installation ID to Tutorial SLiMS to get an activation code, then paste it in SLiMS Admin → System → Template → Modern Library → Settings → <b>Activation code</b>.'),
+  ];
+  $style = '#ml-trial-lock{position:fixed;inset:0;z-index:2147483646;display:' . ($active ? 'flex' : 'none') . ';align-items:center;justify-content:center;padding:16px;'
+    . 'background:rgba(21,53,39,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);font-family:Inter,Segoe UI,Arial,sans-serif;cursor:not-allowed}'
+    . '#ml-trial-lock .mlt-card{cursor:default;max-width:520px;width:100%;background:#f6f3ec;color:#1d2a23;border-radius:20px;padding:30px 30px 26px;box-shadow:0 24px 60px rgba(0,0,0,.35);text-align:center;border-top:6px solid #f2b33d}'
+    . '#ml-trial-lock .mlt-icon{width:64px;height:64px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:#1f4d3a;color:#f2b33d;font-size:26px}'
+    . '#ml-trial-lock h2{font-family:"Playfair Display",Georgia,serif;font-size:26px;line-height:1.25;margin:0 0 10px;color:#153527}'
+    . '#ml-trial-lock p{font-size:14px;line-height:1.6;margin:0 0 14px;color:#4d5852}'
+    . '#ml-trial-lock .mlt-id{display:inline-block;font:700 20px/1 Consolas,monospace;letter-spacing:.12em;background:#fff;border:1px dashed #1f4d3a;border-radius:10px;padding:10px 16px;margin:2px 0 14px;color:#1f4d3a;user-select:all}'
+    . '#ml-trial-lock small{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6a746e;margin-bottom:4px}'
+    . '#ml-trial-lock .mlt-contact{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:6px}'
+    . '#ml-trial-lock .mlt-contact a{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:999px;background:#1f4d3a;color:#fff!important;text-decoration:none!important;font-weight:600;font-size:14px}';
+  $html = '<div id="ml-trial-lock" role="alertdialog" aria-modal="true" aria-labelledby="mlt-title">'
+    . '<div class="mlt-card">'
+    . '<div class="mlt-icon"><i class="fas fa-lock"></i></div>'
+    . '<h2 id="mlt-title">' . $t['title'] . '</h2>'
+    . '<p>' . $t['body'] . '</p>'
+    . '<small>' . $t['idl'] . '</small><span class="mlt-id">' . $id . '</span>'
+    . '<p>' . $t['how'] . '</p>'
+    . '<div class="mlt-contact">'
+    . '<a href="mailto:' . $email . '?subject=' . rawurlencode('Kode aktivasi Modern Library - ' . $state['id']) . '"><i class="fas fa-envelope"></i>' . $email . '</a>'
+    . '<a href="https://instagram.com/' . $ig . '" target="_blank" rel="noopener"><i class="fab fa-instagram"></i>@' . $ig . '</a>'
+    . '</div></div></div>';
+  // JS: kunci semua interaksi di luar kartu pengunci
+  $js = '(function(){var L=document.getElementById("ml-trial-lock");if(!L)return;'
+    . 'var active=false;function on(){return active;}'
+    . 'window.mlTrialLock=function(){if(active)return;active=true;L.style.display="flex";'
+    . 'Array.prototype.forEach.call(document.body.children,function(el){if(el!==L&&el.tagName!=="SCRIPT"){el.setAttribute("inert","");el.setAttribute("aria-hidden","true");}});'
+    . 'document.querySelectorAll("a[href]").forEach(function(a){if(!L.contains(a)){a.setAttribute("data-ml-locked","");a.setAttribute("href","javascript:void(0)");}});'
+    . 'document.querySelectorAll("form").forEach(function(f){f.setAttribute("action","javascript:void(0)");});'
+    . 'try{document.activeElement&&document.activeElement.blur();}catch(e){}};'
+    . 'function stop(e){if(!on()||L.querySelector(".mlt-card").contains(e.target))return;e.preventDefault();e.stopImmediatePropagation();}'
+    . '["click","dblclick","auxclick","contextmenu","submit","mousedown","touchstart","focusin"].forEach(function(ev){document.addEventListener(ev,stop,true);});'
+    . 'document.addEventListener("keydown",function(e){if(!on()||L.querySelector(".mlt-card").contains(e.target))return;'
+    . 'if(["Enter"," ","Tab","/","k","K"].indexOf(e.key)>-1||e.key.length===1){e.preventDefault();e.stopImmediatePropagation();}},true);'
+    . ($active ? 'window.mlTrialLock();' : '')
+    . '})();';
+  return '<style>' . $style . '</style>' . $html . '<script>' . $js . '</script>';
+}
+
+// Lencana hitung mundur selama masa uji coba berjalan
+function mlTrialBadge($state)
+{
+  $label = mlT('Mode uji coba', 'Trial mode');
+  $rem = (int)$state['remaining'];
+  return '<div id="ml-trial-badge" style="position:fixed;left:16px;bottom:16px;z-index:2147483645;display:flex;align-items:center;gap:8px;'
+    . 'padding:8px 14px;border-radius:999px;background:#1f4d3a;color:#fff;font:600 13px/1 Inter,Segoe UI,Arial,sans-serif;box-shadow:0 8px 20px rgba(0,0,0,.2)">'
+    . '<i class="fas fa-hourglass-half" style="color:#f2b33d"></i>' . $label . ' &middot; '
+    . '<span id="ml-trial-left" style="font-variant-numeric:tabular-nums;color:#f2b33d">--:--</span></div>'
+    . '<script>(function(){var end=Date.now()+' . $rem . '*1000,el=document.getElementById("ml-trial-left"),b=document.getElementById("ml-trial-badge");'
+    // format: "sisa 364 hari 23:59:59", atau "23:59:59" pada hari terakhir
+    . 'function p(n){return String(n).padStart(2,"0");}'
+    . 'function t(){var s=Math.max(0,Math.round((end-Date.now())/1000)),d=Math.floor(s/86400),r=s%86400;'
+    . 'el.textContent=(d>0?"' . mlT('sisa ', '') . '"+d+" ' . mlT('hari', 'days left') . ' ":"")+p(Math.floor(r/3600))+":"+p(Math.floor(r%3600/60))+":"+p(r%60);'
+    . 'if(s<=0){clearInterval(h);if(b)b.remove();if(window.mlTrialLock)window.mlTrialLock();}}var h=setInterval(t,1000);t();})();</script>';
+}
+
+// Halaman yang dikecualikan dari kunci: login staf, 2FA, lupa sandi, sandi baru
+function mlTrialExemptPage()
+{
+  $p = strtolower(trim((string)($_GET['p'] ?? '')));
+  return in_array($p, ['login', '2fa', 'forgot', 'newpass'], true);
+}
+
+// Terapkan pada HTML halaman (dipanggil oleh mlCreditGuard)
+function mlTrialApply($html)
+{
+  $state = $GLOBALS['ml_trial_state'] ?? null;
+  if (!$state || $state['id'] === '' || $state['activated']) return $html;
+  // halaman masuk staf/admin tidak pernah dikunci, agar admin selalu bisa login & memasukkan kode aktivasi
+  if (mlTrialExemptPage()) return $html;
+  $pos = strripos($html, '</body>');
+  if ($pos === false) return $html;
+
+  if ($state['locked']) {
+    // matikan semua tautan & formulir di server (tetap mati walau lapisan dihapus lewat devtools)
+    $body = substr($html, 0, $pos);
+    $body = preg_replace('#<a\b([^>]*?)\shref\s*=\s*("[^"]*"|\'[^\']*\')#i', '<a$1 href="javascript:void(0)" data-ml-locked', $body);
+    $body = preg_replace('#<form\b([^>]*?)\saction\s*=\s*("[^"]*"|\'[^\']*\')#i', '<form$1 action="javascript:void(0)"', $body);
+    // tautan dinamis Vue (:href / v-bind:href) juga dinonaktifkan
+    $body = preg_replace('#<a\b([^>]*?)\s(?::|v-bind:)href\s*=\s*("[^"]*"|\'[^\']*\')#i', '<a$1 data-ml-locked', $body);
+    return $body . mlTrialOverlay($state, true) . substr($html, $pos);
+  }
+  // masih dalam masa uji coba: lencana hitung mundur + pengunci siaga
+  return substr($html, 0, $pos) . mlTrialOverlay($state, false) . mlTrialBadge($state) . substr($html, $pos);
+}
+
+$GLOBALS['ml_trial_state'] = mlTrialState($dbs ?? null);
+
+// apakah OPAC sedang terkunci (dipakai mis. oleh endpoint saran pencarian)
+function mlTrialLocked()
+{
+  return !empty($GLOBALS['ml_trial_state']['locked']);
 }

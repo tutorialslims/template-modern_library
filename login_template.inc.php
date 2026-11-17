@@ -13,12 +13,13 @@
  */
 
 if (isset($_GET['p']) && $_GET['p'] === 'visitor') {
+  // Modern Library: buku tamu tampil dengan header, menu, dan footer yang sama seperti beranda
   $imagesDisk = \SLiMS\Filesystems\Storage::images();
   include "classic.php";
   include "parts/header.php";
+  include "parts/_navbar.php";
   echo $main_content;
-  include __DIR__ . "/assets/js/vegas.js.php";
-  echo '</body></html>';
+  include "parts/footer.php";
 } else {
   include "index_template.inc.php";
 }
