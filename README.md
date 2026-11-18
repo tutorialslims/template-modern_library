@@ -43,7 +43,7 @@ Dibuat oleh **Tutorial SLiMS**.
 ## Cara pasang
 
 1. Buka halaman [**Releases**](https://github.com/tutorialslims/template-modern_library/releases/latest)
-   dan unduh berkas `modern_library-v1.0.0.zip` (versi terbaru).
+   dan unduh berkas ZIP versi terbaru (mis. `modern_library-v1.1.0.zip`).
 2. Ekstrak, lalu salin folder `modern_library` ke folder `template/` di instalasi SLiMS Anda
    sehingga hasilnya `slims/template/modern_library/`.
    > Jika mengunduh lewat tombol **Code → Download ZIP**, ganti dulu nama folder hasil ekstrak
