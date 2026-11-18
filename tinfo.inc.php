@@ -298,9 +298,9 @@ $sysconf['template']['option'][$sysconf['template']['theme']] = [
     ],
     'ml-activation-code' => [
         'dbfield' => 'ml_activation_code',
-        'label' => 'Kode aktivasi (masa uji coba 365 hari). '
+        'label' => 'Kode aktivasi template. '
             . (function () {
-                // tampilkan ID instalasi bila status uji coba sudah tercatat
+                // tampilkan ID instalasi bila sudah tercatat
                 global $dbs;
                 if (!isset($dbs) || !($dbs instanceof mysqli)) return '';
                 $q = @$dbs->query("SELECT setting_value FROM setting WHERE setting_name = 'ml_trial' ORDER BY setting_id ASC LIMIT 1");

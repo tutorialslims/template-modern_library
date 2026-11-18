@@ -20,7 +20,7 @@ $ml_field = (string)($_GET['field'] ?? 'keywords');
 $ml_allowed = ['keywords', 'title', 'author', 'subject', 'isbn', 'publisher', 'callnumber'];
 if (!in_array($ml_field, $ml_allowed, true)) $ml_field = 'keywords';
 
-// masa uji coba: muat helper template (sekali saja) untuk cek status kunci
+// aktivasi: muat helper template (sekali saja) untuk cek status kunci
 include_once __DIR__ . '/../classic.php';
 
 $ml_out = [];

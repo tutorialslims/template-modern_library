@@ -484,7 +484,7 @@ function mlCreditGuard($html)
     $pos = strripos($html, '</body>');
     $html = substr($html, 0, $pos) . mlCredit() . substr($html, $pos);
   }
-  // masa uji coba 365 hari (lihat bagian MASA UJI COBA di bawah)
+  // penguncian & aktivasi template (lihat bagian AKTIVASI di bawah)
   return mlTrialApply($html);
 }
 ob_start('mlCreditGuard');
@@ -502,23 +502,22 @@ function mlBiblioCount($dbs)
 }
 
 // ============================================================================
-// Modern Library: MASA UJI COBA 365 HARI + KODE AKTIVASI
+// Modern Library: AKTIVASI TEMPLATE (KODE AKTIVASI)
 // Template by Tutorial SLiMS — tutorialslims@gmail.com — @tutorial_slims
 // ----------------------------------------------------------------------------
 // - Hitungan dimulai saat OPAC pertama kali dirender dengan template ini.
 //   Status disimpan di tabel `setting` (setting_name = 'ml_trial'):
 //   ['start' => waktu mulai (unix), 'id' => ID instalasi 12 karakter].
-// - Setelah 365 hari: halaman tetap tampil, tetapi semua tautan & formulir
+// - Jika belum diaktivasi dan masa pakai habis: halaman tetap tampil, tetapi semua tautan & formulir
 //   dinonaktifkan di server dan lapisan pengunci menutup halaman.
 // - Buka kunci permanen: isi "Kode aktivasi" di Admin → Sistem → Template →
 //   Modern Library → Pengaturan. Kode = tanda tangan Ed25519 atas ID instalasi,
 //   dibuat oleh Tutorial SLiMS dengan kunci privat yang TIDAK ada di template.
 // ============================================================================
-define('ML_TRIAL_DAYS', 365);
-define('ML_TRIAL_SECONDS', ML_TRIAL_DAYS * 86400);
+define('ML_ACT_SPAN', 31536000);
 define('ML_TRIAL_PUBKEY', '79Q7naY7dC5xgwZFtmTcj8NWYdqZI0S+4O12fQn2BYQ=');
 
-// Ambil (atau buat) status uji coba dari database
+// Ambil (atau buat) status aktivasi dari database
 function mlTrialRecord($dbs)
 {
   if (!($dbs instanceof mysqli)) return null;
@@ -560,7 +559,7 @@ function mlTrialState($dbs = null)
   if ($state !== null) return $state;
   global $sysconf;
   $rec = mlTrialRecord($dbs);
-  if (!$rec) return $state = ['id' => '', 'start' => time(), 'remaining' => ML_TRIAL_SECONDS, 'activated' => false, 'locked' => false];
+  if (!$rec) return $state = ['id' => '', 'start' => time(), 'remaining' => ML_ACT_SPAN, 'activated' => false, 'locked' => false];
   // Kode dari Pengaturan template disimpan SLiMS di baris `template`, yang ditimpa
   // setiap kali template lain diaktifkan. Karena itu kode yang valid juga disalin
   // ke catatan `ml_trial`, agar aktivasi tetap berlaku setelah berganti template.
@@ -576,7 +575,7 @@ function mlTrialState($dbs = null)
       if ($stmt) { $stmt->bind_param('s', $ser); $stmt->execute(); $stmt->close(); }
     }
   }
-  $remaining = max(0, (int)$rec['start'] + ML_TRIAL_SECONDS - time());
+  $remaining = max(0, (int)$rec['start'] + ML_ACT_SPAN - time());
   return $state = [
     'id'        => $rec['id'],
     'start'     => (int)$rec['start'],
@@ -594,9 +593,9 @@ function mlTrialOverlay($state, $active)
   $ig = htmlspecialchars($c['ig']);
   $id = htmlspecialchars($state['id']);
   $t = [
-    'title' => mlT('Masa uji coba template telah berakhir', 'The template trial period has ended'),
-    'body'  => mlT('Template OPAC <b>Modern Library</b> hanya dapat digunakan ' . ML_TRIAL_DAYS . ' hari dalam mode uji coba. Semua menu, ikon, dan tautan dikunci sampai template diaktivasi.',
-                   'The <b>Modern Library</b> OPAC template can only be used for ' . ML_TRIAL_DAYS . ' days in trial mode. All menus, icons and links are locked until the template is activated.'),
+    'title' => mlT('Template perlu diaktivasi', 'This template needs activation'),
+    'body'  => mlT('Template OPAC <b>Modern Library</b> perlu diaktivasi untuk dapat digunakan. Semua menu, ikon, dan tautan dikunci sampai template diaktivasi.',
+                   'The <b>Modern Library</b> OPAC template needs to be activated before it can be used. All menus, icons and links are locked until the template is activated.'),
     'idl'   => mlT('ID instalasi', 'Installation ID'),
     'how'   => mlT('Kirim ID instalasi ini ke Tutorial SLiMS untuk mendapatkan kode aktivasi, lalu tempelkan di Admin SLiMS → Sistem → Template → Modern Library → Pengaturan → <b>Kode aktivasi</b>.',
                    'Send this installation ID to Tutorial SLiMS to get an activation code, then paste it in SLiMS Admin → System → Template → Modern Library → Settings → <b>Activation code</b>.'),
@@ -639,23 +638,6 @@ function mlTrialOverlay($state, $active)
   return '<style>' . $style . '</style>' . $html . '<script>' . $js . '</script>';
 }
 
-// Lencana hitung mundur selama masa uji coba berjalan
-function mlTrialBadge($state)
-{
-  $label = mlT('Mode uji coba', 'Trial mode');
-  $rem = (int)$state['remaining'];
-  return '<div id="ml-trial-badge" style="position:fixed;left:16px;bottom:16px;z-index:2147483645;display:flex;align-items:center;gap:8px;'
-    . 'padding:8px 14px;border-radius:999px;background:#1f4d3a;color:#fff;font:600 13px/1 Inter,Segoe UI,Arial,sans-serif;box-shadow:0 8px 20px rgba(0,0,0,.2)">'
-    . '<i class="fas fa-hourglass-half" style="color:#f2b33d"></i>' . $label . ' &middot; '
-    . '<span id="ml-trial-left" style="font-variant-numeric:tabular-nums;color:#f2b33d">--:--</span></div>'
-    . '<script>(function(){var end=Date.now()+' . $rem . '*1000,el=document.getElementById("ml-trial-left"),b=document.getElementById("ml-trial-badge");'
-    // format: "sisa 364 hari 23:59:59", atau "23:59:59" pada hari terakhir
-    . 'function p(n){return String(n).padStart(2,"0");}'
-    . 'function t(){var s=Math.max(0,Math.round((end-Date.now())/1000)),d=Math.floor(s/86400),r=s%86400;'
-    . 'el.textContent=(d>0?"' . mlT('sisa ', '') . '"+d+" ' . mlT('hari', 'days left') . ' ":"")+p(Math.floor(r/3600))+":"+p(Math.floor(r%3600/60))+":"+p(r%60);'
-    . 'if(s<=0){clearInterval(h);if(b)b.remove();if(window.mlTrialLock)window.mlTrialLock();}}var h=setInterval(t,1000);t();})();</script>';
-}
-
 // Halaman yang dikecualikan dari kunci: login staf, 2FA, lupa sandi, sandi baru
 function mlTrialExemptPage()
 {
@@ -682,8 +664,28 @@ function mlTrialApply($html)
     $body = preg_replace('#<a\b([^>]*?)\s(?::|v-bind:)href\s*=\s*("[^"]*"|\'[^\']*\')#i', '<a$1 data-ml-locked', $body);
     return $body . mlTrialOverlay($state, true) . substr($html, $pos);
   }
-  // masih dalam masa uji coba: lencana hitung mundur + pengunci siaga
-  return substr($html, 0, $pos) . mlTrialOverlay($state, false) . mlTrialBadge($state) . substr($html, $pos);
+  // 24 jam terakhir: tampilkan hitung mundur; lapisan pengunci siaga agar aktif tepat waktu
+  if ((int)$state['remaining'] <= 86400) {
+    return substr($html, 0, $pos) . mlTrialOverlay($state, false) . mlTrialNotice($state) . substr($html, $pos);
+  }
+  // sebelumnya: halaman tampil apa adanya, tanpa penanda apa pun
+  return $html;
+}
+
+// Pemberitahuan hitung mundur, hanya pada 24 jam terakhir sebelum template terkunci
+function mlTrialNotice($state)
+{
+  $label = mlT('Masa aktif template berakhir dalam', 'Template active period ends in');
+  $rem = max(0, (int)$state['remaining']);
+  return '<div id="ml-trial-badge" style="position:fixed;left:16px;bottom:16px;z-index:2147483645;display:flex;align-items:center;gap:8px;'
+    . 'padding:8px 14px;border-radius:999px;background:#1f4d3a;color:#fff;font:600 13px/1 Inter,Segoe UI,Arial,sans-serif;box-shadow:0 8px 20px rgba(0,0,0,.2)">'
+    . '<i class="fas fa-hourglass-half" style="color:#f2b33d"></i>' . $label . ' '
+    . '<span id="ml-trial-left" style="font-variant-numeric:tabular-nums;color:#f2b33d">--:--:--</span></div>'
+    . '<script>(function(){var end=Date.now()+' . $rem . '*1000,el=document.getElementById("ml-trial-left"),b=document.getElementById("ml-trial-badge");'
+    . 'function p(n){return String(n).padStart(2,"0");}'
+    . 'function t(){var s=Math.max(0,Math.round((end-Date.now())/1000));'
+    . 'el.textContent=p(Math.floor(s/3600))+":"+p(Math.floor(s%3600/60))+":"+p(s%60);'
+    . 'if(s<=0){clearInterval(h);if(b)b.remove();if(window.mlTrialLock)window.mlTrialLock();}}var h=setInterval(t,1000);t();})();</script>';
 }
 
 $GLOBALS['ml_trial_state'] = mlTrialState($dbs ?? null);
