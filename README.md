@@ -79,6 +79,30 @@ Buka **Sistem → Template → Pengaturan** pada kartu Modern Library untuk meng
 - Tautan menu **Layanan** di footer hanya muncul bila ada halaman konten berpath `services`
   (Sistem → Konten). Jika belum ada, diganti tautan **Bantuan**.
 
+## Pembaruan
+
+### v1.1.0 — Pembaruan template Modern Library
+
+**Baru**
+- **Halaman Buku Tamu** (`index.php?p=visitor`) kini bertema sama dengan beranda: header, menu,
+  hero krem, dan footer yang seragam.
+- **Jam digital dan statistik pengunjung** hari ini, bulan ini, dan total.
+- **Kartu hasil check-in** dengan foto anggota. Tamu non-anggota dan input yang salah menampilkan
+  gambar logo perpustakaan (`assets/images/guest-visitor.jpg`, bisa diganti dengan gambar Anda).
+- **Panduan pengisian, kutipan inspiratif, dan banner promo** di halaman Buku Tamu.
+- **Kode aktivasi template**, diisi di Admin SLiMS → Sistem → Template → Modern Library → Pengaturan.
+
+**Perbaikan**
+- Halaman login staf, 2FA, lupa sandi, dan atur sandi baru selalu bisa diakses.
+- Pembaruan pustaka pendukung tema dan perbaikan kecil lainnya.
+
+**Cara memperbarui dari v1.0.0:** unduh ZIP v1.1.0 dari halaman
+[Releases](https://github.com/tutorialslims/template-modern_library/releases), ekstrak, lalu timpa
+folder `template/modern_library` di instalasi SLiMS Anda. Pengaturan template yang tersimpan di
+database tetap dipakai.
+
+Catatan rilis lengkap: [v1.1.0](https://github.com/tutorialslims/template-modern_library/releases/tag/v1.1.0).
+
 ## Kredit
 
 Template ini dibangun di atas struktur template bawaan SLiMS
