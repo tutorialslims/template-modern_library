@@ -501,6 +501,40 @@ function mlBiblioCount($dbs)
   return $count;
 }
 
+// ----------------------------------------------------------------------------
+// Modern Library: statistik pengunjung (visitor_count) & peminjaman (loan)
+// untuk popup "Statistik" di navbar. Dipanggil hanya saat popup dibuka lewat
+// endpoint JSON index.php?ml_stats=1 (lihat parts/_stats_data.php), bukan di
+// setiap muat halaman, agar tidak membebani database.
+// ----------------------------------------------------------------------------
+function mlVisitLoanStats($dbs)
+{
+  $count = function ($sql) use ($dbs) {
+    $q = $dbs->query($sql);
+    return ($q && ($row = $q->fetch_row())) ? (int)$row[0] : 0;
+  };
+
+  $today = "CURDATE()";
+  $weekStart = "DATE_SUB(CURDATE(), INTERVAL 6 DAY)";
+  $monthStart = "DATE_FORMAT(CURDATE(), '%Y-%m-01')";
+
+  return [
+    'visitor' => [
+      'today' => $count("SELECT COUNT(*) FROM visitor_count WHERE checkin_date >= {$today}"),
+      'week'  => $count("SELECT COUNT(*) FROM visitor_count WHERE checkin_date >= {$weekStart}"),
+      'month' => $count("SELECT COUNT(*) FROM visitor_count WHERE checkin_date >= {$monthStart}"),
+      'total' => $count("SELECT COUNT(*) FROM visitor_count"),
+    ],
+    'loan' => [
+      'today'  => $count("SELECT COUNT(*) FROM loan WHERE loan_date >= {$today}"),
+      'week'   => $count("SELECT COUNT(*) FROM loan WHERE loan_date >= {$weekStart}"),
+      'month'  => $count("SELECT COUNT(*) FROM loan WHERE loan_date >= {$monthStart}"),
+      'total'  => $count("SELECT COUNT(*) FROM loan"),
+      'active' => $count("SELECT COUNT(*) FROM loan WHERE is_return = 0"),
+    ],
+  ];
+}
+
 // ============================================================================
 // Modern Library: AKTIVASI TEMPLATE (KODE AKTIVASI)
 // Template by Tutorial SLiMS — tutorialslims@gmail.com — @tutorial_slims

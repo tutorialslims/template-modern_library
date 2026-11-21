@@ -16,6 +16,7 @@ Dibuat oleh **Tutorial SLiMS**.
 - Ikon kategori DDC (000–900) dan modal "Semua Kategori"
 - **Koleksi Populer** (berdasarkan jumlah peminjaman; tetap tampil walau belum ada transaksi) dan **Koleksi Baru**
 - Banner promo, pembaca terbaik, banner pencarian, peta lokasi, dan strip layanan
+- **Popup Statistik** (ikon grafik di header, tersedia di semua halaman): pengunjung dan peminjaman hari ini/7 hari terakhir/bulan ini/total, langsung dari database, dimuat lewat AJAX saat dibuka
 
 **Pencarian**
 - **Saran koleksi langsung** saat mengetik: judul, pengarang, tahun, dan nomor panggil, dengan sorotan kata kunci

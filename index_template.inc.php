@@ -28,6 +28,13 @@ if (isset($_GET['ml_suggest']) && !isset($_GET['p']) && !isset($_GET['search']))
   include __DIR__ . '/parts/_suggest.php';
 }
 
+// ----------------------------------------------------------------------------
+// Modern Library: endpoint statistik pengunjung & peminjaman (JSON) untuk popup navbar
+// ----------------------------------------------------------------------------
+if (isset($_GET['ml_stats']) && !isset($_GET['p']) && !isset($_GET['search'])) {
+  include __DIR__ . '/parts/_stats_data.php';
+}
+
 // setup list view
 $_SESSION['LIST_VIEW'] = $_POST['view'] ?? $_SESSION['LIST_VIEW'] ?? 'list';
 

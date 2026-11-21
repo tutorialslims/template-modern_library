@@ -122,6 +122,11 @@ $count_basket = $is_login ? count($_SESSION['m_mark_biblio'] ?? []) : 0;
                     </a>
                 <?php endif; ?>
 
+                <a href="javascript:void(0)" class="ml-action" data-toggle="modal" data-target="#statsModal">
+                    <i class="fas fa-chart-line"></i>
+                    <span><?= mlT('Statistik', 'Statistics') ?></span>
+                </a>
+
                 <div class="dropdown">
                     <a href="#" class="ml-action" id="mlLangMenu" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                         <span class="flag-icon flag-icon-<?= $current_lang['code'] ?> ml-flag"></span>

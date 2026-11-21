@@ -1500,3 +1500,29 @@ body.ml-body {
 
 /* foto tamu non-anggota: logo utuh (tidak terpotong) di atas latar putih */
 .mv-result-photo img.is-guest { object-fit: contain; background: #fff; padding: 6px; }
+
+/* ---------- popup statistik pengunjung & peminjaman ---------- */
+.ml-stats-modal .modal-title { font-family: var(--ml-serif); color: var(--ml-green-dark); display: flex; align-items: center; }
+.ml-stats-modal .modal-title i { color: var(--ml-gold); }
+.ml-stats-loading, .ml-stats-error { text-align: center; padding: 36px 0; color: var(--ml-muted); }
+.ml-stats-error { color: var(--ml-coral); }
+.ml-stats-section-title { font-size: 14px; font-weight: 700; color: var(--ml-green-dark); margin-bottom: 12px; }
+.ml-stats-section-title i { color: var(--ml-green-soft); }
+.ml-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.ml-stats-tile {
+    background: var(--ml-cream); border: 1px solid var(--ml-line); border-radius: var(--ml-radius-sm);
+    padding: 14px 10px; text-align: center;
+}
+.ml-stats-tile strong { display: block; font-family: var(--ml-serif); font-size: 24px; line-height: 1.2; color: var(--ml-green); }
+.ml-stats-tile span { display: block; font-size: 11px; color: var(--ml-muted); margin-top: 4px; }
+.ml-stats-tile-accent { background: var(--ml-tint-green); border-color: var(--ml-green-soft); }
+.ml-stats-tile-accent strong { color: var(--ml-green-dark); }
+.ml-stats-active {
+    display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 12px 16px;
+    background: var(--ml-tint-peach); border-radius: var(--ml-radius-sm); color: var(--ml-text); font-size: 14px;
+}
+.ml-stats-active i { color: var(--ml-coral); }
+.ml-stats-active strong { color: var(--ml-green-dark); font-size: 16px; }
+@media (max-width: 575.98px) {
+    .ml-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
