@@ -82,6 +82,22 @@ Buka **Sistem → Template → Pengaturan** pada kartu Modern Library untuk meng
 
 ## Pembaruan
 
+### v1.2.0 — Popup Statistik Pengunjung & Peminjaman
+
+**Baru**
+- **Popup Statistik** lewat ikon grafik di header (tersedia di semua halaman OPAC): pengunjung
+  dan peminjaman hari ini, 7 hari terakhir, bulan ini, dan total sepanjang waktu, termasuk jumlah
+  eksemplar yang sedang dipinjam.
+- Data diambil langsung dari database lewat endpoint JSON, dan hanya dimuat saat popup dibuka
+  (bukan di setiap kunjungan halaman), agar tidak membebani database.
+
+**Cara memperbarui dari v1.1.0:** unduh ZIP v1.2.0 dari halaman
+[Releases](https://github.com/tutorialslims/template-modern_library/releases), ekstrak, lalu timpa
+folder `template/modern_library` di instalasi SLiMS Anda. Pengaturan template yang tersimpan di
+database tetap dipakai.
+
+Catatan rilis lengkap: [v1.2.0](https://github.com/tutorialslims/template-modern_library/releases/tag/v1.2.0).
+
 ### v1.1.0 — Pembaruan template Modern Library
 
 **Baru**
